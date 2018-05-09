@@ -121,6 +121,7 @@ Accounts.registerLoginHandler(function(options) {
 	const syncUserDataFieldMap = RocketChat.settings.get('CAS_Sync_User_Data_FieldMap').trim();
 	const cas_version = parseFloat(RocketChat.settings.get('CAS_version'));
 	const sync_enabled = RocketChat.settings.get('CAS_Sync_User_Data_Enabled');
+	const use_ldap_account = RocketChat.settings.get('CAS_Use_LDAP_Account');
 
 	// We have these
 	const ext_attrs = {
@@ -167,7 +168,22 @@ Accounts.registerLoginHandler(function(options) {
 
 	// Search existing user by its external service id
 	logger.debug(`Looking up user by id: ${ result.username }`);
-	let user = Meteor.users.findOne({ 'services.cas.external_id': result.username });
+	let user;
+	if (RocketChat.settings.get('LDAP_Enable') && use_ldap_account) {
+		user = Meteor.users.findOne({
+			$or: [{
+				$and: [{
+					'ldap': true
+				}, {
+					'username': result.username
+				}]
+			}, {
+				'services.cas.external_id': result.username
+			}]
+		});
+	} else {
+		user = Meteor.users.findOne({ 'services.cas.external_id': result.username });
+	}
 
 	if (user) {
 		logger.debug(`Using existing user for '${ result.username }' with id: ${ user._id }`);
